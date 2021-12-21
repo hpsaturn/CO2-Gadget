@@ -11,7 +11,7 @@ void printPreferences() {
                 ((autoSelfCalibration) ? "Enabled" : "Disabled"));
   Serial.printf("co2OrangeRange:\t #%d#\n", co2OrangeRange);
   Serial.printf("co2RedRange:\t #%d#\n", co2RedRange);
-  Serial.printf("TFTBrightness:\t #%d#\n", TFTBrightness);
+  Serial.printf("DisplayBrightness:\t #%d#\n", DisplayBrightness);
   Serial.printf("activeBLE is:\t#%s#\n", ((activeBLE) ? "Enabled" : "Disabled"));
   Serial.printf("activeWIFI is:\t#%s#\n", ((activeWIFI) ? "Enabled" : "Disabled"));
   Serial.printf("activeMQTT is:\t#%s#\n", ((activeMQTT) ? "Enabled" : "Disabled"));
@@ -32,6 +32,10 @@ void printPreferences() {
   Serial.printf("wifiPass:\t#%s#\n", wifiPass.c_str());
   #endif
   Serial.printf("hostName:\t#%s#\n", hostName.c_str());
+  Serial.printf("selCO2Sensor:\t #%d#\n", selectedCO2Sensor);
+  Serial.printf("debugSensors is:\t#%s#\n", ((debugSensors) ? "Enabled" : "Disabled"));
+  Serial.printf("showFahrenheit is:\t#%s#\n", ((showFahrenheit) ? "Farenheit" : "Celsius"));
+  Serial.printf("measInterval:\t #%d#\n", measurementInterval);
   Serial.println("");
 }
 
@@ -44,7 +48,7 @@ void initPreferences() {
   autoSelfCalibration = preferences.getBool("autoSelfCal", false);
   co2OrangeRange = preferences.getUInt("co2OrangeRange", 700);
   co2RedRange = preferences.getUInt("co2RedRange", 1000);
-  TFTBrightness = preferences.getUInt("TFTBrightness", 100);
+  DisplayBrightness = preferences.getUInt("DisplayBright", 100);
   activeBLE = preferences.getBool("activeBLE", true);
   activeWIFI = preferences.getBool("activeWIFI", false);
   activeMQTT = preferences.getBool("activeMQTT", false);
@@ -65,6 +69,11 @@ void initPreferences() {
   wifiSSID = preferences.getString("wifiSSID", wifiSSID).c_str();
   wifiPass = preferences.getString("wifiPass", wifiPass).c_str();
   hostName = preferences.getString("hostName", hostName).c_str();
+  selectedCO2Sensor = preferences.getUInt("selCO2Sensor", 0);
+  debugSensors = preferences.getBool("debugSensors", false);
+  showFahrenheit = preferences.getBool("showFahrenheit", false);
+  measurementInterval = preferences.getUInt("measInterval", 10);
+  
   rootTopic.trim();
   mqttClientId.trim();
   mqttBroker.trim();
@@ -96,7 +105,7 @@ void putPreferences() {
   preferences.putBool("autoSelfCal", autoSelfCalibration);
   preferences.putUInt("co2OrangeRange", co2OrangeRange);
   preferences.putUInt("co2RedRange", co2RedRange);
-  preferences.putUInt("TFTBrightness", TFTBrightness);
+  preferences.putUInt("DisplayBright", DisplayBrightness);
   preferences.putBool("activeBLE", activeBLE);
   preferences.putBool("activeWIFI", activeWIFI);
   preferences.putBool("activeMQTT", activeMQTT);
@@ -113,5 +122,9 @@ void putPreferences() {
   preferences.putString("wifiSSID", wifiSSID);
   preferences.putString("wifiPass", wifiPass);
   preferences.putString("hostName", hostName);
+  preferences.putUInt("selCO2Sensor", selectedCO2Sensor);
+  preferences.putBool("debugSensors", debugSensors);
+  preferences.putBool("showFahrenheit", showFahrenheit);
+  preferences.putUInt("measInterval", measurementInterval);
   preferences.end();
 }

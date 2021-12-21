@@ -8,7 +8,7 @@
 /**/ // #define SUPPORT_OTA            // Needs SUPPORT_WIFI - CURRENTLY NOT WORKING AWAITING FIX
 /**/ #define SUPPORT_TFT
 /**/ #define DEBUG_ARDUINOMENU
-#define UNITHOSTNAME "CO2-Gadget"
+/**/ #define UNITHOSTNAME "CO2-Gadget"
 /**/ // #define ALTERNATIVE_I2C_PINS   // For the compact build as shown at https://emariete.com/medidor-co2-display-tft-color-ttgo-t-display-sensirion-scd30/
 /**/ #endif
 /*****************************************************************************************************/
@@ -28,12 +28,16 @@ String mDNSName     = "Unset";
 bool activeBLE =  true;
 bool activeWIFI = true;
 bool activeMQTT = true;
-
+bool debugSensors = false;
+bool showFahrenheit = false;
+uint16_t measurementInterval = 10;
 bool inMenu = false;
-
 bool bleInitialized = false;
+int8_t selectedCO2Sensor = -1;
+uint32_t DisplayBrightness = 100;
 
 // Variables to control automatic display off to save power
+uint32_t actualDisplayBrightness = 100; // To know if it's on or off
 bool displayOffOnExternalPower = false;
 uint16_t timeToDisplayOff = 0; // Time in seconds to turn off the display to save power.
 uint64_t nextTimeToDisplayOff = millis() + (timeToDisplayOff*1000); // Next time display should turn off
@@ -43,6 +47,16 @@ uint64_t lastButtonUpTimeStamp = millis(); // Last time button UP was pressed
 #undef BUILD_GIT
 #endif // ifdef BUILD_GIT
 #define BUILD_GIT __DATE__
+
+#undef I2C_SDA
+#undef I2C_SCL
+#ifdef ALTERNATIVE_I2C_PINS
+#define I2C_SDA 22
+#define I2C_SCL 21
+#else
+#define I2C_SDA 21
+#define I2C_SCL 22
+#endif
 
 #include <Wire.h>
 #include "driver/adc.h"
@@ -56,6 +70,8 @@ uint64_t lastButtonUpTimeStamp = millis(); // Last time button UP was pressed
 // #include <WiFiUdp.h>
 #include <AsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include <FS.h>
+#include <SPIFFS.h>
 
 // clang-format off
 /*****************************************************************************************************/
@@ -220,7 +236,7 @@ void readingsLoop() {
 }
 
 void displayLoop() {
-  if (timeToDisplayOff == 0)
+  if (timeToDisplayOff == 0)  // TFT Always ON
     return;
 
   // If configured not to turn off the display on external power
@@ -229,11 +245,19 @@ void displayLoop() {
   if ((!displayOffOnExternalPower) &&
       (battery_voltage * 1000 > batteryFullyChargedMillivolts +
                                     (batteryFullyChargedMillivolts * 5 / 100)))
+  {
+    if(actualDisplayBrightness == 0) // When connect USB & TFT is OFF -> TURN IT ON
+    {
+      setDisplayBrightness(DisplayBrightness); // Turn on the display at DisplayBrightness brightness
+      actualDisplayBrightness = DisplayBrightness;
+    }
     return;
-
+  }
+  
   if (millis() > nextTimeToDisplayOff) {
     Serial.println("-->[MAIN] Turning off display to save power");
-    setTFTBrightness(0); // Turn off the display
+    turnOffDisplay();
+    actualDisplayBrightness = 0;
     nextTimeToDisplayOff = nextTimeToDisplayOff + (timeToDisplayOff * 1000);
   }
 }
@@ -243,17 +267,21 @@ void setup() {
       READ_PERI_REG(RTC_CNTL_BROWN_OUT_REG); // save WatchDog register
   WRITE_PERI_REG(RTC_CNTL_BROWN_OUT_REG, 0); // disable brownout detector
   Serial.begin(115200);
+  delay(100);
   // Serial.printf("Total heap: %d", ESP.getHeapSize());
   // Serial.printf("Free heap: %d", ESP.getFreeHeap());
   // Serial.printf("Total PSRAM: %d", ESP.getPsramSize());
   // Serial.printf("Free PSRAM: %d", ESP.getFreePsram());
-  Serial.printf("\n-->[MAIN] CO2 Gadget Version: %s%s\nStarting up...\n", CO2_GADGET_VERSION, CO2_GADGET_REV);
+  Serial.printf("\n-->[MAIN] CO2 Gadget Version: %s%s Flavour: %s\nStarting up...\n", CO2_GADGET_VERSION, CO2_GADGET_REV, FLAVOUR);
+  Serial.printf("\n-->[MAIN] Version compiled: %s at %s\n", __DATE__, __TIME__);
+  
   setCpuFrequencyMhz(80); // Lower CPU frecuency to reduce power consumption
   initPreferences();
   initBattery();
 #if defined SUPPORT_OLED
-  delay(100);
   initDisplayOLED();
+  delay(1000);
+  displaySplashScreenOLED();
   delay(1000);
 #endif
 #if defined SUPPORT_TFT
@@ -286,5 +314,5 @@ void loop() {
 #endif
   displayLoop();
   buttonsLoop();
-  nav.poll(); // this device only draws when needed
+  menuLoop();
 }

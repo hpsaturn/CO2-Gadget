@@ -1,4 +1,10 @@
 
+
+#ifndef CO2_Gadget_TFT_h
+#define CO2_Gadget_TFT_h
+
+#ifdef SUPPORT_TFT
+
 // clang-format off
 /*****************************************************************************************************/
 /*********                                                                                   *********/
@@ -6,7 +12,6 @@
 /*********                                                                                   *********/
 /*****************************************************************************************************/
 // clang-format on
-#if defined SUPPORT_TFT
 
 #include <TFT_eSPI.h>
 #include <SPI.h>
@@ -15,6 +20,7 @@
 #include "FontArchivoNarrow_Regular10pt7b.h"
 #include "FontCO2Gadget50ptDigits.h"
 
+// https://tchapi.github.io/Adafruit-GFX-Font-Customiser/
 #define GFXFF 1
 #define FF90 &ArchivoNarrow_Regular10pt7b
 #define FF95 &FontCO2GadgetDigits50pt7b
@@ -22,36 +28,36 @@
 // RAM:   [==        ]  21.4% (used 69976 bytes from 327680 bytes)
 // Flash: [==========]  95.3% (used 1874104 bytes from 1966080 bytes)
 
-uint32_t TFTBrightness = 100;
 uint16_t iconDefaultColor = TFT_CYAN;
 
 TFT_eSPI tft =
     TFT_eSPI(135, 240); // Invoke library, pins defined in User_Setup.h
-#endif
 
-void setTFTBrightness(uint32_t newBrightness) {
+void setDisplayBrightness(uint32_t newBrightness) {
   Serial.printf("Setting screen brightness value at %d\n", newBrightness);
   ledcWrite(0, newBrightness); // 0-15, 0-255 (with 8 bit resolution); 0=totally
                                // dark;255=totally shiny
 }
 
+void turnOffDisplay() {
+  setDisplayBrightness(0); // Turn off the display
+}
+
 void initDisplayTFT() {
-#if defined SUPPORT_TFT
   pinMode(BACKLIGHT_PIN, OUTPUT);
   ledcSetup(0, 5000, 8);    // 0-15, 5000, 8
   ledcAttachPin(BACKLIGHT_PIN, 0); // TFT_BL, 0 - 15
-  setTFTBrightness(TFTBrightness);
+  setDisplayBrightness(DisplayBrightness);
   tft.init();
   tft.setRotation(1);
-#endif
 }
 
 void displaySplashScreenTFT() {
-#if defined SUPPORT_TFT
   tft.fillScreen(TFT_WHITE);
   tft.setSwapBytes(true);
-  tft.pushImage(0, 0, 240, 135, bootlogo);
-#endif
+  tft.pushImage(60, 12, 118, 40, eMarieteLogo);
+  tft.pushImage(10, 50, 92, 72, CO2Logo);
+  tft.pushImage(112, 67, 122, 46, GadgetLogo);
 }
 
 void showBatteryIconTFT() {
@@ -118,36 +124,33 @@ void showMQTTIconTFT(int32_t posX, int32_t posY) {
 }
 
 void showTemperatureTFT() {
-#if defined SUPPORT_TFT
   // Draw Voltaje number
   if (temp >= 30)      tft.setTextColor(TFT_ORANGE, TFT_BLACK);
   else if (temp >= 10) tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
-  else                 tft.setTextColor(TFT_SKYBLUE, TFT_BLACK);
-    
+  else                 tft.setTextColor(TFT_SKYBLUE, TFT_BLACK);    
   tft.setTextDatum(BL_DATUM);
   tft.setSwapBytes(true);
   tft.pushImage(2, tft.height()-22, 16, 16, iconTemperature);
-  tft.drawString(String(temp, 1) + "~" , 22 , tft.height()-2);
-  #endif
+  if (showFahrenheit) {
+    tft.drawString(String(tempFahrenheit, 1) + "~" , 22 , tft.height()-2);    
+  } else {
+    tft.drawString(String(temp, 1) + "~" , 22 , tft.height()-2);
+  }  
 }
 
 void showHumidity() {
-#if defined SUPPORT_TFT
   if (hum<=25)     tft.setTextColor(TFT_WHITE, TFT_RED);
   else if (hum<40) tft.setTextColor(TFT_ORANGE, TFT_BLACK);
   else if (hum<=60) tft.setTextColor(TFT_LIGHTGREY, TFT_BLACK);
   else if (hum<75) tft.setTextColor(TFT_SKYBLUE, TFT_BLACK);
   else tft.setTextColor(TFT_RED, TFT_SKYBLUE);
-
   tft.setTextDatum(BR_DATUM);
   tft.setSwapBytes(true);
   tft.pushImage(tft.width()-60, tft.height()-22, 16, 16, iconHumidity);
   tft.drawString(String(hum, 0) + "%", tft.width()-6, tft.height()-2);
-#endif
 }
 
 void showVoltageTFT(int32_t posX, int32_t posY) {
-#if defined SUPPORT_TFT
   // Draw Voltaje number
   uint16_t battery_voltage = battery.voltage();
   if (battery_voltage <= 3.6) {
@@ -159,10 +162,8 @@ void showVoltageTFT(int32_t posX, int32_t posY) {
   } else {
     tft.setTextColor(TFT_BLUE, TFT_BLACK);
   }
-
   tft.setTextDatum(TR_DATUM);
   tft.drawString(String(battery_voltage, 1) + "V", posX, posY);
-#endif
 }
 
 void showBLEDeviceIdTFT(int32_t posX, int32_t posY) {  
@@ -195,7 +196,6 @@ void showCO2TFT(uint16_t co2) {
 }
 
 void showValuesTFT(uint16_t co2) {
-#if defined SUPPORT_TFT
   if (co2 > 9999) {
     co2 = 9999;
   }
@@ -218,5 +218,7 @@ void showValuesTFT(uint16_t co2) {
   // set default font for menu
   tft.setFreeFont(NULL);
   tft.setTextSize(2);
-#endif
 }
+
+#endif  // SUPPORT_WEBCONFIG
+#endif  // CO2_Gadget_TFT_h
